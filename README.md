@@ -115,7 +115,7 @@ Please open issues and send pull requests.
 ## TODO
 
 * Make it work from the command line.
-* Show the original code and location on file.
+* ~~Show the original code and location on file.~~
 
 ## Changelog
 
