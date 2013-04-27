@@ -24,21 +24,25 @@
       (construct-replacement-form (replacements f) f)
       f)))
 
+(def exclusion-words
+  #{"if" "catch" "try" "throw" "finally" "do" "quote" "var" "recur"})
+
 (defn- find-unbound-vars
   "Given a form and a namespace returns a set of symbols that are not bound
   in the namespace."
   [f ns]
   (->> (flatten f)
        (filter symbol?)
-       (filter (complement #(ns-resolve ns %)))
+       (remove #(or (ns-resolve ns %) (exclusion-words (name %)) (= \. (first (name %))) (= \. (last (name %)))))
        (into #{})))
 
 (defn- make-generic
   "Given a namespace and a form returns a generic form"
   [ns f]
   (let [replacements (symbol-replacements (find-unbound-vars f ns))]
-    (walk/postwalk #(make-generic-sub-form % replacements)
-                   f)))
+    (with-meta
+      (walk/postwalk #(make-generic-sub-form % replacements) f)
+      (meta f))))
 
 (defn- maybe-replace-with-old-form [f]
   "Given a generic form, returns the original if it is in the tag."
@@ -49,20 +53,44 @@
   (walk/postwalk maybe-replace-with-old-form
                  generic-form))
 
+(defn- expression-breaker
+  "Given an expression break return a seq of expression parts.
+  If the part doesn't have metadata keep the original expression
+  metadata."
+  [exp]
+  (let [t (tree-seq coll? identity exp)
+        m (fn [ex]
+            (if-not (:line (meta ex))
+              (try
+                (with-meta ex (meta exp))
+                (catch Exception e
+                  ex))
+              ex))]
+    (map m t)))
+
 (defn- code-repetition
   "Given a seq of forms returns a vector of repeated forms. It ignores
   forms of one element. It also ignores forms in the namespace declaration."
   [exp ns]
   (->> exp
-       (filter coll?)
+       (filter #(and (coll? %) (> (count %) 1)))
        (remove #(or (= (first %) :require) (= (first %) :use) (= (first %) :import)))
-       (tree-seq coll? identity)
-       (filter coll?)
+       (map expression-breaker)
+       (apply concat)
+       (filter #(and (coll? %) (> (count %) 1)))
        (map (partial make-generic ns))
-       (frequencies)
-       (filter #(and (> (second %) 1) (> (count (first %)) 2)))
-       (sort-by second)))
-       
+       (group-by identity)
+       (map #(hash-map
+              :generic (first %)
+              :complexity (count (flatten (first %)))
+              :count (count (second %))
+              :original (map (juxt meta unmake-generic) (second %))))
+       (filter #(and (> (count (:original %)) 1)
+                     (> (count (:generic %)) 2)
+                     (some :line (map first (:original %)))
+                     #_(some coll? (:generic %))))
+       (map #(dissoc % :generic))))
+
 (def ^:private eof (Object.))
 
 (defn- read-file
@@ -80,13 +108,39 @@
   (when (resolve '*default-data-reader-fn*)
     {(resolve '*default-data-reader-fn*) (fn [tag val] val)}))
 
+(defn- read-all
+  "Given a reader returns a seq of all forms in the reader."
+  [reader]
+  (apply concat
+         (for [f (read-file (LineNumberingPushbackReader. reader))]
+           f)))
+
+(defn- sort-results
+  "Given a sort order and a seq of results returns a sorted seq of results.
+  If the sort order is nil, it defaults to :complexity."
+  [sort-order r]
+  (sort-by (or (first sort-order) :complexity) r))
+
+(defn- print-results
+  "Given a seq of results prints the formated results"
+  [sr]
+  (doseq [r sr]
+    (println (str (:count r) " repetitions of complexity " (:complexity r)))
+    (newline)
+    (doseq [o (:original r)]
+      (println (str "On line " (:line (first o)) ":"))
+      (pprint/pprint (second o))
+      (newline))
+    (println "======================================================================")
+    (newline)))
+
 (defn check-file
-  "Given a file and a namespace prints repetitions in the file."
-  [source-file ns]
+  "Given a file and a namespace prints repetitions in the file. May also
+  receive a optional sort order to print sorted results."
+  [source-file ns & sort-order]
   (with-open [reader (io/reader source-file)]
     (with-bindings default-data-reader-binding
-      (pprint/pprint
-        (code-repetition
-          (apply concat
-                 (for [f (read-file (LineNumberingPushbackReader. reader))]
-                   f)) ns)))))
+      (print-results
+       (sort-results sort-order
+        (code-repetition (read-all reader) ns))))))
+
