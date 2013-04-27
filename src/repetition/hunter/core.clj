@@ -119,7 +119,10 @@
   "Given a sort order and a seq of results returns a sorted seq of results.
   If the sort order is nil, it defaults to :complexity."
   [sort-order r]
-  (sort-by (or (first sort-order) :complexity) r))
+  (let [sort-order (if (= :repetition (first sort-order))
+                     :count
+                     :complexity)]
+    (sort-by sort-order r)))
 
 (defn- print-results
   "Given a seq of results prints the formated results"
