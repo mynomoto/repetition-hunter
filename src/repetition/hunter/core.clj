@@ -1,6 +1,7 @@
 (ns repetition.hunter.core
   (:require [clojure.walk :as walk]
             [clojure.java.io :as io]
+            [clojure.string :as str]
             [clojure.pprint :as pprint])
   (:import [clojure.lang LineNumberingPushbackReader]))
 
@@ -48,7 +49,7 @@
   "Given a generic form, returns the original if it is in the tag."
   (if-let [n (:old (meta f))] n f))
 
-(defn- unmake-generic [generic-form]
+(defn- make-original [generic-form]
   "Given a generic form returns the original if possible."
   (walk/postwalk maybe-replace-with-old-form
                  generic-form))
@@ -68,28 +69,35 @@
               ex))]
     (map m t)))
 
-(defn- code-repetition
-  "Given a seq of forms returns a vector of repeated forms. It ignores
+(defn- create-repetition-map
+  "Given seqs of generic forms make one seq and find repetitions. Returns
+   a map of original forms and measures of repetition and complexity."
+  [exp exps]
+  (->> (apply concat exp exps)
+       (group-by identity)
+       (map #(hash-map
+              :complexity (count (flatten (first %)))
+              :repetition (count (second %))
+              :original (map (juxt meta make-original) (second %))))))
+
+(defn- find-all-generic
+  "Given a seq of forms returns a seq of all generic subforms. It ignores
   forms of one element. It also ignores forms in the namespace declaration."
   [exp ns]
   (->> exp
        (filter #(and (coll? %) (> (count %) 1)))
-       (remove #(or (= (first %) :require) (= (first %) :use) (= (first %) :import)))
+       (remove #(or (= (first %) :require)
+                    (= (first %) :use)
+                    (= (first %) :import)
+                    (= (first %) :refer-clojure)
+                    (= (first %) :load)
+                    (= (first %) :gen-class)))
        (map expression-breaker)
        (apply concat)
        (filter #(and (coll? %) (> (count %) 1)))
        (map (partial make-generic ns))
-       (group-by identity)
-       (map #(hash-map
-              :generic (first %)
-              :complexity (count (flatten (first %)))
-              :count (count (second %))
-              :original (map (juxt meta unmake-generic) (second %))))
-       (filter #(and (> (count (:original %)) 1)
-                     (> (count (:generic %)) 2)
-                     (some :line (map first (:original %)))
-                     #_(some coll? (:generic %))))
-       (map #(dissoc % :generic))))
+       (remove #(nil? (:line (meta %))))
+       (map #(vary-meta % assoc :ns (name ns)))))
 
 (def ^:private eof (Object.))
 
@@ -110,40 +118,70 @@
 
 (defn- read-all
   "Given a reader returns a seq of all forms in the reader."
-  [reader]
-  (apply concat
-         (for [f (read-file (LineNumberingPushbackReader. reader))]
-           f)))
+  [source-file]
+  (with-open [reader (io/reader source-file)]
+      (with-bindings default-data-reader-binding
+        (apply concat
+               (doall
+                  (for [f (read-file (LineNumberingPushbackReader. reader))]
+                    f))))))
 
 (defn- sort-results
   "Given a sort order and a seq of results returns a sorted seq of results.
   If the sort order is nil, it defaults to :complexity."
   [sort-order r]
-  (let [sort-order (if (= :repetition (first sort-order))
-                     :count
-                     :complexity)]
-    (sort-by sort-order r)))
+  (let [so (if (= :repetition sort-order)
+             (juxt :repetition :complexity)
+             (juxt :complexity :repetition))]
+    (sort-by so r)))
+
+(defn- filter-flat
+  "Given results filter flat forms when pred is true."
+  [pred r]
+  (if pred
+    (filter #(some coll? (second (first (:original %)))) r)
+    r))
+
+(defn- filter-results
+  "Given results and filter options returns the filtered results."
+  [f r]
+  (->> r
+       (filter #(and (>= (:repetition %) (or (:min-repetition f) 2))
+                     (>= (:complexity %) (or (:min-complexity f) 3))))
+       (filter-flat (:remove-flat f))))
 
 (defn- print-results
   "Given a seq of results prints the formated results"
   [sr]
   (doseq [r sr]
-    (println (str (:count r) " repetitions of complexity " (:complexity r)))
+    (println (str (:repetition r) " repetitions of complexity " (:complexity r)))
     (newline)
     (doseq [o (:original r)]
-      (println (str "On line " (:line (first o)) ":"))
-      (pprint/pprint (second o))
+      (println (str "Line " (:line (first o)) " - " (:ns (first o)) ":"))
+      (pprint/with-pprint-dispatch pprint/code-dispatch
+      (pprint/pprint (second o)))
       (newline))
     (println "======================================================================")
     (newline)))
 
-(defn check-file
-  "Given a file and a namespace prints repetitions in the file. May also
-  receive a optional sort order to print sorted results."
-  [source-file ns & sort-order]
-  (with-open [reader (io/reader source-file)]
-    (with-bindings default-data-reader-binding
-      (print-results
-       (sort-results sort-order
-        (code-repetition (read-all reader) ns))))))
+(defn- file-from-ns
+  "Given a ns returns the corresponding file."
+  [ns]
+  (-> ns
+      name
+      (str/replace "." "/")
+      (str/replace "-" "_")
+      (#(str "src/" % ".clj"))
+      io/file))
 
+(defn check-file
+  "Given a seq of namespaces and a map of options prints repetitions in the
+  corresponding file with options."
+  [nss {:keys [sort] :as options}]
+  (let  [files (for [n nss
+                     :let [f (file-from-ns n)]]
+                 (find-all-generic (read-all f) n))]
+    (->> (create-repetition-map (first files) (rest files))
+         (filter-results (:filter options))
+         (sort-results sort)
+         print-results)))
