@@ -6,6 +6,8 @@ repetitions in your code.
 Add `[repetition-hunter "0.3.1"]` to the `:dependencies` of your
 `:user` profile.
 
+Since `0.3.1` it works with clojure version 1.2.0 and up.
+
 ## Usage
 
 You should use it from the REPL:
