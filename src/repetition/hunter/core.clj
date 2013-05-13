@@ -113,8 +113,9 @@
     (do-read)))
 
 (def ^:private default-data-reader-binding
-  (when (resolve '*default-data-reader-fn*)
-    {(resolve '*default-data-reader-fn*) (fn [tag val] val)}))
+  (if (resolve '*default-data-reader-fn*)
+    {(resolve '*default-data-reader-fn*) (fn [tag val] val)}
+    {}))
 
 (defn- read-all
   "Given a reader returns a seq of all forms in the reader."

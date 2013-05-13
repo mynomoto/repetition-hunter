@@ -100,6 +100,9 @@ Please open issues and send pull requests.
 
 ## Changelog
 
+* v0.3.1
+  * Fix NPE when using with clojure 1.4.0
+
 * v0.3.0
   * Add multiple namespaces support
   * Add filters :min-repetition, :min-complexity, :remove-flat
