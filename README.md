@@ -3,7 +3,7 @@
 Do you repeat yourself in your code? This is for you. It finds
 repetitions in your code.
 
-Add `[repetition-hunter "0.3.0"]` to the `:dependencies` of your
+Add `[repetition-hunter "0.3.1"]` to the `:dependencies` of your
 `:user` profile.
 
 ## Usage
