@@ -34,7 +34,7 @@
   [f ns]
   (->> (flatten f)
        (filter symbol?)
-       (remove #(or (ns-resolve ns %) (exclusion-words (name %)) (= \. (first (name %))) (= \. (last (name %)))))
+       (remove #(or (find-ns %) (ns-resolve ns %) (exclusion-words (name %)) (= \. (first (name %))) (= \. (last (name %)))))
        (into #{})))
 
 (defn- make-generic
@@ -186,3 +186,4 @@
          (filter-results (:filter options))
          (sort-results sort)
          print-results)))
+
