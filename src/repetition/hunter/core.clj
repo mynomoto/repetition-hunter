@@ -168,21 +168,32 @@
 (defn- file-from-ns
   "Given a ns returns the corresponding file."
   [ns]
-  (-> ns
-      name
-      (str/replace "." "/")
-      (str/replace "-" "_")
-      (#(str "src/" % ".clj"))
-      io/file))
+  (let [f (-> ns
+              name
+              (str/replace "." "/")
+              (str/replace "-" "_")
+              (#(str % ".clj")))
+        cp (filter #(or (.endsWith % "/") (.endsWith % "\\")) (map (memfn getPath) (.getURLs (java.lang.ClassLoader/getSystemClassLoader))))
+        cp (map #(str/replace % "\\" "/") cp)]
+    (loop [l (map #(str % f) cp)]
+      (if (seq l)
+        (if (.exists (io/file (first l)))
+          (io/file (first l))
+          (recur (rest l)))))))
 
-(defn check-file
-  "Given a seq of namespaces and a map of options prints repetitions in the
-  corresponding file with options."
+(defn results
+  "Given a seq of namespaces and a map of options returns a seq of
+   repetitions in the corresponding file with options."
   [nss {:keys [sort] :as options}]
   (let  [files (for [n nss
                      :let [f (file-from-ns n)]]
                  (find-all-generic (read-all f) n))]
     (->> (create-repetition-map (first files) (rest files))
          (filter-results (:filter options))
-         (sort-results sort)
-         print-results)))
+         (sort-results sort))))
+
+(defn check-file
+  "Given a seq of namespaces and a map of options prints repetitions in the
+  corresponding file with options."
+  [nss options]
+  (print-results (results nss options)))
