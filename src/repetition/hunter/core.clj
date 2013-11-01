@@ -34,7 +34,12 @@
   [f ns]
   (->> (flatten f)
        (filter symbol?)
-       (remove #(or (ns-resolve ns %) (exclusion-words (name %)) (= \. (first (name %))) (= \. (last (name %)))))
+       (remove #(or
+                 (and (some (partial = \.) (name %)) (not-any? (partial = \/) (name %)))
+                 (ns-resolve ns %)
+                 (exclusion-words (name %))
+                 (= \. (first (name %)))
+                 (= \. (last (name %)))))
        (into #{})))
 
 (defn- make-generic
@@ -197,3 +202,4 @@
   corresponding file with options."
   [nss options]
   (print-results (results nss options)))
+
