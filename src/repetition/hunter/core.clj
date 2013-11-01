@@ -20,7 +20,7 @@
 (defn- make-generic-sub-form
   "Given a form and a map of replacements return a generic form."
   [f replacements]
-  (let [variable? (into #{} (keys replacements))]
+  (let [variable? (set (keys replacements))]
     (if (variable? f)
       (construct-replacement-form (replacements f) f)
       f)))
@@ -91,12 +91,6 @@
   [exp ns]
   (->> exp
        (filter #(and (coll? %) (> (count %) 1)))
-       (remove #(or (= (first %) :require)
-                    (= (first %) :use)
-                    (= (first %) :import)
-                    (= (first %) :refer-clojure)
-                    (= (first %) :load)
-                    (= (first %) :gen-class)))
        (map expression-breaker)
        (apply concat)
        (filter #(and (coll? %) (> (count %) 1)))
