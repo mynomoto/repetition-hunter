@@ -1,4 +1,4 @@
-(defproject repetition-hunter "0.3.1"
+(defproject repetition-hunter "1.0.0"
   :description "A tool to hunt repetitions in your code."
   :url "https://github.com/mynomoto/repetition-hunter"
   :license {:name "Eclipse Public License"
