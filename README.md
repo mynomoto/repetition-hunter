@@ -3,10 +3,10 @@
 Do you repeat yourself in your code? This is for you. It finds
 repetitions in your code.
 
-Add `[repetition-hunter "0.3.1"]` to the `:dependencies` of your
+Add `[repetition-hunter "1.0.0"]` to the `:dependencies` of your
 `:user` profile.
 
-Since `0.3.1` it works with clojure version 1.2.0 and up.
+It works with clojure version 1.2.0 and up.
 
 ## Usage
 
@@ -93,14 +93,12 @@ Please open issues and send pull requests.
 
 ## TODO
 
-* Make it work from the command line.
-* ~~Add option to only output structures with other colls inside.~~
-* ~~Add filters to low count or complexity.~~
-* ~~Show the original code and location on file.~~
-* ~~Add support to multiple namespaces.~~
 * Add some tests.
 
 ## Changelog
+* v1.0.0
+  * Add/Fix search files in directories outside src/. Now it tries to find in every classpath directory.
+  * Fix ClassNotFoundException when file contains namespace-like symbols (thank you [tsholmes](https://github.com/tsholmes)).
 
 * v0.3.1
   * Fix NPE when using with clojure 1.4.0
