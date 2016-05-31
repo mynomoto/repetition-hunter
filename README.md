@@ -1,5 +1,4 @@
 # Repetition Hunter
-
 Do you repeat yourself in your code? This is for you. It finds
 repetitions in your code.
 
@@ -9,8 +8,14 @@ Add `[repetition-hunter "1.0.0"]` to the `:dependencies` of your
 It works with clojure version 1.2.0 and up.
 
 ## Usage
+### Lein plugin
+[Andrés Gómez Urquiza](https://github.com/nez) created a lein plugin that you can find at
+[https://github.com/fractalLabs/lein-repetition-hunter](https://github.com/fractalLabs/lein-repetition-hunter)
 
-You should use it from the REPL:
+Thanks @nez!
+
+### As a library
+You can use it from the REPL:
 
     user=> (use 'repetition.hunter)
     nil
@@ -117,6 +122,6 @@ Please open issues and send pull requests.
 
 ## License
 
-Copyright © 2013 Marcelo Nomoto
+Copyright © 2013-2016 Marcelo Nomoto
 
 Licensed under the EPL, the same as Clojure (see the file epl-v10.html).
