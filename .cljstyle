@@ -1,0 +1,5 @@
+{:files {:extensions #{"cljc" "cljs" "clj" "cljx" "edn" "cljstyle"}
+         :ignore #{".hg" ".git" #".clj-kondo/.*?/"}}
+ :rules {:indentation {:indents ^:replace {#".*" [[:inner 0]]}
+                       :list-indent 2}
+         :namespaces {:import-break-width 80}}}
