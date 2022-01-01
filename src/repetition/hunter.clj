@@ -1,6 +1,7 @@
 (ns repetition.hunter
-  (:require [clojure.java.io :as io]
-            [repetition.hunter.core :as rep]))
+  (:require
+    [repetition.hunter.core :as rep]))
+
 
 (defn hunt
   "Given a namespace or seq of namespaces prints the repetitions found.
@@ -19,12 +20,12 @@
   (hunt '(your.namespace1 your.namespace2)
         :sort :repetition :filter {:min-complexity 5 :remove-flat true})"
   [nss & {:keys [sort filter]
-            :or {sort :complexity}}]
+          :or {sort :complexity}}]
   (let [nss (if (list? nss)
               nss
               (list nss))]
     (try
       (rep/check-file nss {:sort sort :filter filter})
-        (catch Exception e
-          (println "Hunt failed")
-          (println (.getMessage e))))))
+      (catch Exception e
+        (println "Hunt failed")
+        (println (.getMessage e))))))
