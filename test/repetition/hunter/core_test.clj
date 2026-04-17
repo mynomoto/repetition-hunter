@@ -77,4 +77,16 @@
                        '(-> y first second)]
                       [{:line 11 :column 3 :ns "repetition.hunter.sample"}
                        '(-> x first second)]]}]
-         (rep/results-from-paths ["test/repetition/hunter/sample.clj"] {}))))
+         (rep/results-from-paths ["test/repetition/hunter/sample.clj"] {})))
+
+(deftest results-from-cljs-path
+  (let [results (rep/results-from-paths ["test/repetition/hunter/sample_cljs.cljs"] {})]
+    (is (= 1 (count results)))
+    (is (= 2 (:repetition (first results))))
+    (is (= 4 (:complexity (first results))))))
+
+(deftest find-unbound-vars-static-analysis
+  (is (= ['y]
+        (rep/find-unbound-vars
+          '(defn a [y] (-> y first second))
+          {:known-vars #{'defn '-> 'first 'second}})))))

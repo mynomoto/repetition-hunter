@@ -85,34 +85,78 @@
       f)))
 
 
+;; --- Static symbol analysis ---
+
+(def special-symbols
+  #{'if 'let 'letfn 'fn 'loop 'recur 'throw 'try 'catch 'finally
+    'do 'quote 'var 'def 'defn 'defn- 'defmacro
+    'when 'when-not 'when-let 'if-let 'if-not
+    'some-> 'some->> 'cond 'cond-> 'cond->> 'as->
+    'for 'doseq '-> '->> 'require 'import 'use 'in-ns})
+
 (def exclusion-words
   #{"if" "catch" "try" "throw" "finally" "do" "quote" "var" "recur"})
 
+(defn- locals-qualified-symbol?
+  [sym]
+  (and (symbol? sym) (namespace sym)))
+
+(defn- local-binding-symbols
+  "Extract locally-bound symbols from a form's binding vectors.
+  Best-effort static analysis — catches fn args, let/loop bindings, etc."
+  [form]
+  (->> (tree-seq coll? seq form)
+       (filter vector?)
+       (mapcat
+         (fn [v]
+           (->> v
+                (filter symbol?)
+                (remove #{'&}))))
+       set))
 
 (defn find-unbound-vars
-  "Given a form and a namespace returns a set of symbols that are not bound
-  in the namespace."
-  [f ns]
-  (->> (flatten f)
-      (filter symbol?)
-      distinct
-      (remove (fn [sym]
-                (let [sym-str (name sym)]
-                  (or
-                    (and (some #(= \. %) sym-str)
-                      (not-any? #(= \/ %) sym-str))
-                    (ns-resolve ns sym)
-                    (exclusion-words sym-str)
-                    (= \. (first sym-str))
-                    (= \. (last sym-str))))))
-      (into [])))
+  "Given a form and either a namespace or an analysis context map,
+  returns a vector of symbols that appear unbound.
+  Namespace: uses ns-resolve (legacy behavior).
+  Map with :known-vars: uses static analysis."
+  [f context]
+  (let [syms (->> (flatten f) (filter symbol?) distinct)]
+    (if (instance? clojure.lang.Namespace context)
+      ;; Legacy path: use ns-resolve
+      (->> syms
+        (remove (fn [sym]
+                  (let [sym-str (name sym)]
+                    (or
+                      (and (some #(= \. %) sym-str)
+                        (not-any? #(= \/ %) sym-str))
+                      (ns-resolve context sym)
+                      (exclusion-words sym-str)
+                      (= \. (first sym-str))
+                      (= \. (last sym-str))))))
+        (into []))
+      ;; Static path: use known-vars and local bindings
+      (let [{:keys [known-vars]} context
+            locals (local-binding-symbols f)
+            protected (into special-symbols known-vars)]
+        (->> syms
+          (remove (fn [sym]
+                    (let [sym-str (name sym)]
+                      (or
+                        (locals-qualified-symbol? sym)
+                        (protected sym)
+                        (locals sym)
+                        (and (some #(= \. %) sym-str)
+                          (not-any? #(= \/ %) sym-str))
+                        (= \. (first sym-str))
+                        (= \. (last sym-str))))))
+          (into []))))))
 
 (defn make-generic
-  "Given a namespace and a form returns a generic form"
-  [ns f]
-  (let [replacements (symbol-replacements (find-unbound-vars f ns))
+  "Given a context (namespace or analysis map) and a form, returns a generic form"
+  [context f]
+  (let [replacements (symbol-replacements (find-unbound-vars f context))
         new-form (walk/postwalk #(make-generic-sub-form % replacements) f)]
-    (if-some  [m (meta f)]
+    (if-some [m (meta f)]
       (with-meta new-form m)
       new-form)))
 
@@ -159,16 +203,16 @@
 
 
 (defn- find-all-generic
-  "Given a seq of forms and a ns identifier returns a seq of all generic
-  subforms. It ignores forms of one element. It also ignores forms in the
-  namespace declaration."
-  [exp ns]
+  "Given a seq of forms and a context (namespace or analysis map),
+  returns a seq of all generic subforms. Ignores forms of one element
+  and forms in the namespace declaration."
+  [exp context ns-name]
   (->> exp
     (mapcat expression-breaker)
     (filter #(and (coll? %) (> (count %) 1)))
-    (map #(make-generic ns %))
+    (map #(make-generic context %))
     (remove #(nil? (:line (meta %))))
-    (map #(vary-meta % assoc :ns (name ns)))))
+    (map #(vary-meta % assoc :ns (name ns-name)))))
 
 
 (defn- read-all
@@ -216,10 +260,16 @@
 
 ;; --- Source-unit-based analysis (new path) ---
 
+(defn analysis-context-for-source
+  "Build an analysis context map from a source unit."
+  [{:keys [dialect]}]
+  {:dialect dialect
+   :known-vars special-symbols})
+
 (defn find-all-generic-in-source
   "Given a source unit map, returns a seq of all generic subforms."
-  [{:keys [forms ns-name]}]
-  (find-all-generic forms (or ns-name 'user)))
+  [{:keys [forms ns-name] :as source-unit}]
+  (find-all-generic forms (analysis-context-for-source source-unit) (or ns-name 'user)))
 
 (defn results-from-source-units
   "Given a seq of source units and options, returns a seq of repetitions."
