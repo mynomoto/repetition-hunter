@@ -214,9 +214,11 @@
 (defn- read-all
   "Given a readable (file path or reader) returns a seq of all forms
   using edamame."
-  [readable]
-  (let [path (if (string? readable) readable (.getPath readable))]
-    (parse/read-forms path)))
+  ([readable]
+   (read-all readable {}))
+  ([readable options]
+   (let [path (if (string? readable) readable (.getPath readable))]
+     (parse/read-forms path options))))
 
 (defn ns->readable
   [ns-symbol]
@@ -285,7 +287,7 @@
   [nss {:keys [sort] :as options}]
   (let [files (for [n nss
                     :let [f (ns->readable n)]]
-                (find-all-generic (read-all f) n n))]
+                (find-all-generic (read-all f options) n n))]
     (->> (create-repetition-map (first files) (rest files))
          (filter-results (:filter options))
          (sort-results sort))))
