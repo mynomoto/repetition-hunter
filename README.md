@@ -2,7 +2,7 @@
 Do you repeat yourself in your code? This is for you. It finds
 repetitions in your code.
 
-Add `[repetition-hunter "1.1.0"]` to the `:dependencies` of your
+Add `[repetition-hunter "1.2.0"]` to the `:dependencies` of your
 `:user` profile.
 
 It works with Clojure version 1.10.3 and up.
@@ -23,10 +23,21 @@ The project now parses source files through [edamame](https://github.com/borkdud
 ;; Analyze a single file
 (repetition.hunter/hunt-path "src/my_app/core.cljs")
 
+;; Analyze a .cljc file — :platform is required (:clj or :cljs)
+(repetition.hunter/hunt-path "src/my_app/shared.cljc"
+                             :platform :clj)
+
 ;; Analyze multiple files
 (repetition.hunter/hunt-paths ["src/my_app/core.clj"
                                 "src/my_app/ui.cljs"])
+
+;; .cljc files in hunt-paths also require :platform
+(repetition.hunter/hunt-paths ["src/my_app/shared.cljc"
+                               "src/my_app/ui.cljs"]
+                              :platform :cljs)
 ```
+
+For `.cljc` files, you must pass `:platform :clj` or `:platform :cljs` so the reader conditionals are resolved to the correct platform branch.
 
 ### Namespace-based analysis (existing)
 You can use it from the REPL:
@@ -115,6 +126,11 @@ Please open issues and send pull requests.
 * Add some tests.
 
 ## Changelog
+* v1.2.0
+  * Add `:platform` option for `.cljc` analysis — requires `:clj` or `:cljs` to select reader-conditional branch
+  * `hunt-path`, `hunt-paths`, and `hunt` now accept `:platform`
+  * `.cljc` files raise a clear error when analyzed without `:platform`
+
 * v1.1.0
   * Switch parser from `clojure.core/read` to edamame for better location metadata and dialect support
   * Add `hunt-path` and `hunt-paths` for file-based analysis of `.clj`, `.cljs`, `.cljc` files
