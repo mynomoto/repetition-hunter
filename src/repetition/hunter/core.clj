@@ -3,10 +3,10 @@
     [clojure.java.io :as io]
     [clojure.pprint :as pprint]
     [clojure.string :as str]
-    [clojure.walk :as walk])
+    [clojure.walk :as walk]
+    [repetition.hunter.parse :as parse]
+    [repetition.hunter.source :as source])
   (:import
-    (clojure.lang
-      LineNumberingPushbackReader)
     (java.io
       File)))
 
@@ -159,8 +159,9 @@
 
 
 (defn- find-all-generic
-  "Given a seq of forms returns a seq of all generic subforms. It ignores
-  forms of one element. It also ignores forms in the namespace declaration."
+  "Given a seq of forms and a ns identifier returns a seq of all generic
+  subforms. It ignores forms of one element. It also ignores forms in the
+  namespace declaration."
   [exp ns]
   (->> exp
     (mapcat expression-breaker)
@@ -170,36 +171,12 @@
     (map #(vary-meta % assoc :ns (name ns)))))
 
 
-(def ^:private eof (Object.))
-
-
-(defn- read-file
-  "Generate a lazy sequence of top level forms from a
-   LineNumberingPushbackReader."
-  [^LineNumberingPushbackReader r]
-  (let [do-read (fn do-read
-                  []
-                  (lazy-seq
-                    (let [form (read r false eof)]
-                      (when-not (= form eof)
-                        (cons form (do-read))))))]
-    (do-read)))
-
-
-(def ^:private default-data-reader-binding
-  (if-let [dr (resolve '*default-data-reader-fn*)]
-    {dr (fn [_tag val] val)}
-    {}))
-
-
 (defn- read-all
-  "Given a reader returns a seq of all forms in the reader."
+  "Given a readable (file path or reader) returns a seq of all forms
+  using edamame."
   [readable]
-  (with-open [reader (io/reader readable)]
-    (with-bindings default-data-reader-binding
-        (doall
-          (for [f (read-file (LineNumberingPushbackReader. reader))]
-            f)))))
+  (let [path (if (string? readable) readable (.getPath readable))]
+    (parse/read-forms path)))
 
 
 (defn ns->readable
@@ -237,19 +214,38 @@
     (filter-flat (:remove-flat f))))
 
 
-(defn results
-  "Given a seq of namespaces and a map of options returns a seq of
-   repetitions in the corresponding file with options."
-  [nss {:keys [sort] :as options}]
-  (let  [files (for [n nss
-                     :let [f (ns->readable n)]]
-                 (find-all-generic (read-all f) n))]
+;; --- Source-unit-based analysis (new path) ---
+
+(defn find-all-generic-in-source
+  "Given a source unit map, returns a seq of all generic subforms."
+  [{:keys [forms ns-name]}]
+  (find-all-generic forms (or ns-name 'user)))
+
+(defn results-from-source-units
+  "Given a seq of source units and options, returns a seq of repetitions."
+  [source-units {:keys [sort] :as options}]
+  (let [files (map find-all-generic-in-source source-units)]
     (->> (create-repetition-map (first files) (rest files))
       (filter-results (:filter options))
       (sort-results sort))))
 
+(defn results-from-paths
+  "Given a seq of file paths and options, returns a seq of repetitions."
+  [paths options]
+  (results-from-source-units (source/source-units-from-paths paths) options))
 
-(defn- print-results
+
+;; --- Legacy namespace-based API ---
+
+(defn results
+  "Given a seq of namespaces and a map of options returns a seq of
+   repetitions in the corresponding file with options."
+  [nss {:keys [sort] :as options}]
+  (let [paths (mapv ns->readable nss)]
+    (results-from-paths paths options)))
+
+
+(defn print-results
   "Given a seq of results prints the formated results"
   [sr]
   (doseq [r sr]

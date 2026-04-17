@@ -69,3 +69,12 @@
                       [{:line 11 :column 3 :ns "repetition.hunter.sample"}
                        '(-> x first second)]]}]  
         (rep/results '[repetition.hunter.sample] {}))))
+
+(deftest results-from-paths
+  (is (= [{:complexity 4
+           :repetition 2
+           :original [[{:line 6 :column 3 :ns "repetition.hunter.sample"}
+                       '(-> y first second)]
+                      [{:line 11 :column 3 :ns "repetition.hunter.sample"}
+                       '(-> x first second)]]}]
+         (rep/results-from-paths ["test/repetition/hunter/sample.clj"] {}))))
