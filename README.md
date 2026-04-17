@@ -7,6 +7,18 @@ Add `[repetition-hunter "1.2.0"]` to the `:dependencies` of your
 
 It works with Clojure version 1.10.3 and up.
 
+## CLI Usage
+
+You can run repetition-hunter without a REPL using Clojure CLI tools mode:
+
+```bash
+clj -T:rh :path '"src/my_app/core.cljs"'
+clj -T:rh :path '"src/my_app/shared.cljc"' :platform :cljs
+clj -T:rh :paths '["src/my_app/core.cljs" "src/my_app/ui.cljs"]'
+```
+
+For `.cljc` files, you must pass `:platform :clj` or `:platform :cljs`.
+
 ## Usage
 ### Lein plugin
 [Andrés Gómez Urquiza](https://github.com/nez) created a lein plugin that you can find at
@@ -16,6 +28,8 @@ Thanks @nez!
 
 ### File-based analysis (new)
 The project now parses source files through [edamame](https://github.com/borkdude/edamame), which makes the analysis path friendly to `.clj`, `.cljs`, and `.cljc` files.
+
+If you prefer terminal usage without a REPL, use the `clj -T:rh` commands shown in the CLI section above.
 
 ```clojure
 (require 'repetition.hunter)
