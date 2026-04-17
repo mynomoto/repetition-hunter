@@ -2,10 +2,10 @@
 Do you repeat yourself in your code? This is for you. It finds
 repetitions in your code.
 
-Add `[repetition-hunter "1.0.0"]` to the `:dependencies` of your
+Add `[repetition-hunter "1.1.0"]` to the `:dependencies` of your
 `:user` profile.
 
-It works with clojure version 1.2.0 and up.
+It works with Clojure version 1.10.3 and up.
 
 ## Usage
 ### Lein plugin
@@ -14,7 +14,21 @@ It works with clojure version 1.2.0 and up.
 
 Thanks @nez!
 
-### As a library
+### File-based analysis (new)
+The project now parses source files through [edamame](https://github.com/borkdude/edamame), which makes the analysis path friendly to `.clj`, `.cljs`, and `.cljc` files.
+
+```clojure
+(require 'repetition.hunter)
+
+;; Analyze a single file
+(repetition.hunter/hunt-path "src/my_app/core.cljs")
+
+;; Analyze multiple files
+(repetition.hunter/hunt-paths ["src/my_app/core.clj"
+                                "src/my_app/ui.cljs"])
+```
+
+### Namespace-based analysis (existing)
 You can use it from the REPL:
 
     user=> (use 'repetition.hunter)
@@ -101,6 +115,13 @@ Please open issues and send pull requests.
 * Add some tests.
 
 ## Changelog
+* v1.1.0
+  * Switch parser from `clojure.core/read` to edamame for better location metadata and dialect support
+  * Add `hunt-path` and `hunt-paths` for file-based analysis of `.clj`, `.cljs`, `.cljc` files
+  * Add static symbol analysis — no longer requires `require`/`ns-resolve` for path-based analysis
+  * Add `repetition.hunter.parse` namespace for configurable dialect-aware parsing
+  * Add `repetition.hunter.source` namespace for source-unit abstraction
+
 * v1.0.0
   * Add/Fix search files in directories outside src/. Now it tries to find in every classpath directory.
   * Fix ClassNotFoundException when file contains namespace-like symbols (thank you [tsholmes](https://github.com/tsholmes)).
