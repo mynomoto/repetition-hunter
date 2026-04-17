@@ -83,6 +83,21 @@
       (is (not (some #{'first 'second '->} result)))
       (is (some #{'y} result)))))
 
+(deftest make-generic-preserves-specific-function-calls
+  (testing "different callee symbols should not collapse to the same generic form"
+    (let [context {:known-vars rep/special-symbols}
+          foo-form (rep/make-generic context '(foo v))
+          bar-form (rep/make-generic context '(bar v))]
+      (is (not= foo-form bar-form)))))
+
+(deftest results-from-paths-does-not-conflate-vectors-and-lists
+  (testing "vector and list forms should not be grouped as the same repetition"
+    (let [path "/tmp/repetition_hunter_vector_list_case.clj"
+          _ (spit path "(ns repetition.hunter.vector-list-case)\n(def a '[foo x])\n(def b '(bar x))\n")
+          results (rep/results-from-paths [path] {})
+          rendered (pr-str results)]
+      (is (not (re-find #"\[foo x\].*\(bar x\)|\(bar x\).*\[foo x\]" rendered))))))
+
 (deftest hunt-path-returns-nil-on-success
   (is (nil? (hunter/hunt-path "test/repetition/hunter/sample_cljs.cljs"))))
 

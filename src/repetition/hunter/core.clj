@@ -75,6 +75,50 @@
       (construct-replacement-form (replacements f) f)
       f)))
 
+(defn- genericize-form
+  "Genericize a form while preserving list head symbols so specific calls stay distinct."
+  [f replacements]
+  (let [recur-form #(genericize-form % replacements)]
+    (cond
+      (symbol? f)
+      (make-generic-sub-form f replacements)
+
+      (list? f)
+      (let [[head & tail] f
+            generic-tail (map recur-form tail)
+            generic-form (if (= 'quote head)
+                           (apply list head generic-tail)
+                           (apply list head generic-tail))]
+        (if-some [m (meta f)]
+          (with-meta generic-form m)
+          generic-form))
+
+      (vector? f)
+      (let [generic-form (mapv recur-form f)]
+        (if-some [m (meta f)]
+          (with-meta generic-form m)
+          generic-form))
+
+      (set? f)
+      (let [generic-form (into #{} (map recur-form) f)]
+        (if-some [m (meta f)]
+          (with-meta generic-form m)
+          generic-form))
+
+      (map? f)
+      (let [generic-form (into (empty f)
+                               (map (fn [[k v]] [(recur-form k) (recur-form v)]))
+                               f)]
+        (if-some [m (meta f)]
+          (with-meta generic-form m)
+          generic-form))
+
+      (seq? f)
+      (doall (map recur-form f))
+
+      :else
+      f)))
+
 ;; --- Static symbol analysis ---
 
 (def special-symbols
@@ -156,11 +200,7 @@
 (defn make-generic
   "Given a context (namespace or analysis map) and a form, returns a generic form"
   [context f]
-  (let [replacements (symbol-replacements (find-unbound-vars f context))
-        new-form (walk/postwalk #(make-generic-sub-form % replacements) f)]
-    (if-some [m (meta f)]
-      (with-meta new-form m)
-      new-form)))
+  (genericize-form f (symbol-replacements (find-unbound-vars f context))))
 
 (defn- maybe-replace-with-old-form
   "Given a generic form, returns the original if it is in the tag."
@@ -188,14 +228,24 @@
               ex))]
     (map m t)))
 
+(defn- repetition-key
+  "Create a grouping key that preserves collection type distinctions."
+  [form]
+  (cond
+    (list? form) [:list (mapv repetition-key form)]
+    (vector? form) [:vector (mapv repetition-key form)]
+    (set? form) [:set (into #{} (map repetition-key) form)]
+    (map? form) [:map (into {} (map (fn [[k v]] [(repetition-key k) (repetition-key v)])) form)]
+    :else form))
+
 (defn- create-repetition-map
   "Given seqs of generic forms make one seq and find repetitions. Returns
    a map of original forms and measures of repetition and complexity."
   [exp exps]
   (->> (apply concat exp exps)
-       (group-by identity)
+       (group-by repetition-key)
        (map #(hash-map
-              :complexity (count (flatten (first %)))
+              :complexity (count (flatten (first (second %))))
               :repetition (count (second %))
               :original (map (juxt meta make-original) (second %))))))
 
