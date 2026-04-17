@@ -97,3 +97,26 @@
 
 (deftest hunt-path-returns-nil-on-success
   (is (nil? (hunter/hunt-path "test/repetition/hunter/sample_cljs.cljs"))))
+
+
+(deftest results-from-cljc-path-requires-platform
+  (is (thrown-with-msg?
+        clojure.lang.ExceptionInfo
+        #"CLJC analysis requires :platform"
+        (rep/results-from-paths ["test/repetition/hunter/sample_cljc.cljc"] {}))))
+
+(deftest results-from-cljc-path-differ-by-platform
+  (let [clj-results  (rep/results-from-paths ["test/repetition/hunter/sample_cljc.cljc"] {:platform :clj})
+        cljs-results (rep/results-from-paths ["test/repetition/hunter/sample_cljc.cljc"] {:platform :cljs})
+        clj-printed  (pr-str clj-results)
+        cljs-printed (pr-str cljs-results)]
+    (is (re-find #"rest" clj-printed))
+    (is (re-find #"last" cljs-printed))
+    (is (not= clj-printed cljs-printed))))
+
+(deftest results-from-cljc-namespace-requires-platform
+  (require 'repetition.hunter.sample-cljc)
+  (is (thrown-with-msg?
+        clojure.lang.ExceptionInfo
+        #"CLJC analysis requires :platform"
+        (rep/results '[repetition.hunter.sample-cljc] {}))))
