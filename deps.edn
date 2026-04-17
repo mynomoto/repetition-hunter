@@ -2,6 +2,10 @@
         borkdude/edamame {:mvn/version "1.4.27"}}
  :paths ["src"]
  :aliases {:dev {:extra-paths ["test"]}
+           :rh {:exec-fn repetition.hunter.tool/hunt-tool
+               :extra-paths ["src"]
+               :extra-deps {org.clojure/clojure {:mvn/version "1.10.3"}
+                            borkdude/edamame {:mvn/version "1.4.27"}}}
            :dev-easy {:extra-deps {cider/cider-nrepl {:mvn/version "0.27.2"}
                                    djblue/portal {:mvn/version "0.18.0"}
                                    refactor-nrepl/refactor-nrepl {:mvn/version "3.1.0"}}
