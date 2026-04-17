@@ -1,12 +1,37 @@
 # CLJC Platform-Target Analysis Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Make `.cljc` analysis deterministic by requiring explicit `:platform` selection, selecting the correct reader-conditional branch during parsing, and propagating that target cleanly through all reachable analysis entry points.
 
 **Architecture:** Keep reader-conditional complexity at the parser/source boundary. `parse.clj` becomes the single place that validates `:platform` and resolves a concrete analysis target, `source.clj` produces platform-aware source units, and `core.clj` stays mostly unchanged below that boundary while both path-based and namespace-based entry points enforce the same `.cljc` contract.
 
 **Tech Stack:** Clojure, `clojure.test`, `borkdude/edamame`, deps.edn / Leiningen
+
+---
+
+## Implementation Status
+
+All 5 tasks completed. 27 tests, 62 assertions, 0 failures.
+
+| Task | Status | Commit |
+|------|--------|--------|
+| 1. Add failing `.cljc` contract tests and fixture | ✅ | `ae482c9` |
+| 2. Implement parser-level target resolution | ✅ | `efdca52` |
+| 3. Propagate platform-aware source units | ✅ | `6fdc9f3` |
+| 4. Extend APIs to enforce `.cljc` contract | ✅ | `a265b06` |
+| 5. Document and verify | ✅ | `dbc37d5` |
+
+### Review Results
+
+- **Spec compliance:** ✅ 12/12 requirements met
+- **Code quality:** ✅ Approved
+
+### Known Minor Issues (not blocking)
+
+- `source.clj` calls `resolve-analysis-target` twice per file (once explicitly, once inside `read-forms`) — pure function so result is correct, but future refactor could eliminate the duplication
+- `:dialect` and `:platform` in analysis context are not consumed downstream yet — they exist to prepare for future CLJS-specific symbol intelligence
+- No test for passing `:platform` to `.clj`/`.cljs` files (valid but undocumented behavior)
 
 ---
 
@@ -40,7 +65,7 @@
 - Modify: `test/repetition/hunter/source_test.clj`
 - Modify: `test/repetition/hunter/core_test.clj`
 
-- [ ] **Step 1: Replace the `.cljc` fixture with explicit shared, `:clj`, and `:cljs` branches**
+- [x] **Step 1: Replace the `.cljc` fixture with explicit shared, `:clj`, and `:cljs` branches**
 
 ```clojure
 (ns repetition.hunter.sample-cljc)
@@ -67,7 +92,7 @@
        (-> y last butlast))))
 ```
 
-- [ ] **Step 2: Add parser tests that fail until `.cljc` requires `:platform` and selects the correct branch**
+- [x] **Step 2: Add parser tests that fail until `.cljc` requires `:platform` and selects the correct branch**
 
 ```clojure
 (deftest parse-cljc-file-requires-platform
@@ -97,7 +122,7 @@
         (parse/read-forms "test/repetition/hunter/sample_cljc.cljc" {:platform :foo}))))
 ```
 
-- [ ] **Step 3: Add source-unit tests that fail until `:platform` is preserved in the source unit**
+- [x] **Step 3: Add source-unit tests that fail until `:platform` is preserved in the source unit**
 
 ```clojure
 (deftest source-unit-from-cljc-path-requires-platform
@@ -113,7 +138,7 @@
     (is (re-find #"cljs-only-a" (pr-str (:forms unit))))))
 ```
 
-- [ ] **Step 4: Add integration tests that fail until path-based and namespace-based analysis respect the same `.cljc` contract**
+- [x] **Step 4: Add integration tests that fail until path-based and namespace-based analysis respect the same `.cljc` contract**
 
 ```clojure
 (deftest results-from-cljc-path-requires-platform
@@ -139,7 +164,7 @@
         (rep/results '[repetition.hunter.sample-cljc] {}))))
 ```
 
-- [ ] **Step 5: Run the focused tests and confirm the new assertions fail for the expected reason**
+- [x] **Step 5: Run the focused tests and confirm the new assertions fail for the expected reason**
 
 Run:
 ```bash
@@ -150,7 +175,7 @@ Expected:
 - FAIL/ERROR showing `.cljc` does **not** yet require `:platform`
 - FAIL/ERROR showing branch-specific parsing is not yet deterministic
 
-- [ ] **Step 6: Commit the red tests and fixture update**
+- [x] **Step 6: Commit the red tests and fixture update**
 
 ```bash
 git add test/repetition/hunter/sample_cljc.cljc \
@@ -168,7 +193,7 @@ git commit -m "test: define cljc platform-target contract"
 - Modify: `src/repetition/hunter/parse.clj`
 - Test: `test/repetition/hunter/parse_test.clj`
 
-- [ ] **Step 1: Add a central target resolver and clear exception messages in `parse.clj`**
+- [x] **Step 1: Add a central target resolver and clear exception messages in `parse.clj`**
 
 ```clojure
 (def valid-platforms #{:clj :cljs})
@@ -195,7 +220,7 @@ git commit -m "test: define cljc platform-target contract"
        :platform (when (= :cljc dialect) platform)})))
 ```
 
-- [ ] **Step 2: Make parser options target-aware and switch `.cljc` parsing to active-branch selection**
+- [x] **Step 2: Make parser options target-aware and switch `.cljc` parsing to active-branch selection**
 
 ```clojure
 (defn parser-options
@@ -211,7 +236,7 @@ git commit -m "test: define cljc platform-target contract"
                #{:clj})})
 ```
 
-- [ ] **Step 3: Update `read-forms` to accept options, resolve the target first, and parse with the computed options**
+- [x] **Step 3: Update `read-forms` to accept options, resolve the target first, and parse with the computed options**
 
 ```clojure
 (defn read-forms
@@ -223,7 +248,7 @@ git commit -m "test: define cljc platform-target contract"
        (edamame/parse-string-all (slurp r) (parser-options target))))))
 ```
 
-- [ ] **Step 4: Run parser tests and verify they now pass**
+- [x] **Step 4: Run parser tests and verify they now pass**
 
 Run:
 ```bash
@@ -234,7 +259,7 @@ Expected:
 - PASS for the existing `.clj` / `.cljs` tests
 - PASS for the new `.cljc` missing-platform and branch-selection tests
 
-- [ ] **Step 5: Commit the parser implementation**
+- [x] **Step 5: Commit the parser implementation**
 
 ```bash
 git add src/repetition/hunter/parse.clj test/repetition/hunter/parse_test.clj
@@ -251,7 +276,7 @@ git commit -m "feat: require platform for cljc parsing"
 - Test: `test/repetition/hunter/source_test.clj`
 - Test: `test/repetition/hunter/core_test.clj`
 
-- [ ] **Step 1: Update source-unit construction so path-based analysis passes options to parsing and preserves `:platform`**
+- [x] **Step 1: Update source-unit construction so path-based analysis passes options to parsing and preserves `:platform`**
 
 ```clojure
 (defn source-unit-from-path
@@ -274,7 +299,7 @@ git commit -m "feat: require platform for cljc parsing"
    (mapv #(source-unit-from-path % options) paths)))
 ```
 
-- [ ] **Step 2: Thread `:platform` through `results-from-paths` and make `analysis-context-for-source` include it**
+- [x] **Step 2: Thread `:platform` through `results-from-paths` and make `analysis-context-for-source` include it**
 
 ```clojure
 (defn analysis-context-for-source
@@ -288,7 +313,7 @@ git commit -m "feat: require platform for cljc parsing"
   (results-from-source-units (source/source-units-from-paths paths options) options))
 ```
 
-- [ ] **Step 3: Run source and path-based integration tests and verify `.cljc` behavior is now deterministic**
+- [x] **Step 3: Run source and path-based integration tests and verify `.cljc` behavior is now deterministic**
 
 Run:
 ```bash
@@ -300,7 +325,7 @@ Expected:
 - PASS for `results-from-paths` missing-platform failure
 - PASS for different outputs between `:clj` and `:cljs` on the `.cljc` fixture
 
-- [ ] **Step 4: Commit the source-unit and path-based analysis changes**
+- [x] **Step 4: Commit the source-unit and path-based analysis changes**
 
 ```bash
 git add src/repetition/hunter/source.clj \
@@ -319,7 +344,7 @@ git commit -m "feat: propagate platform through source-unit analysis"
 - Modify: `src/repetition/hunter.clj`
 - Test: `test/repetition/hunter/core_test.clj`
 
-- [ ] **Step 1: Update namespace-based reading in `core.clj` so `.cljc` inputs can require and receive `:platform`**
+- [x] **Step 1: Update namespace-based reading in `core.clj` so `.cljc` inputs can require and receive `:platform`**
 
 ```clojure
 (defn- read-all
@@ -339,7 +364,7 @@ git commit -m "feat: propagate platform through source-unit analysis"
          (sort-results sort))))
 ```
 
-- [ ] **Step 2: Expose `:platform` in the user-facing API and preserve current behavior for non-`.cljc` inputs**
+- [x] **Step 2: Expose `:platform` in the user-facing API and preserve current behavior for non-`.cljc` inputs**
 
 ```clojure
 (defn hunt
@@ -371,7 +396,7 @@ git commit -m "feat: propagate platform through source-unit analysis"
       (println (.getMessage e)))))
 ```
 
-- [ ] **Step 3: Add or adjust tests so namespace-based `.cljc` analysis now matches the path-based contract**
+- [x] **Step 3: Add or adjust tests so namespace-based `.cljc` analysis now matches the path-based contract**
 
 ```clojure
 (deftest results-from-cljc-namespace-with-platform
@@ -382,7 +407,7 @@ git commit -m "feat: propagate platform through source-unit analysis"
     (is (re-find #"rest" printed))))
 ```
 
-- [ ] **Step 4: Run the core integration tests and verify public/legacy consistency**
+- [x] **Step 4: Run the core integration tests and verify public/legacy consistency**
 
 Run:
 ```bash
@@ -394,7 +419,7 @@ Expected:
 - PASS for namespace-based `.cljc` missing-platform error
 - PASS for namespace-based `.cljc` success when `:platform` is supplied
 
-- [ ] **Step 5: Commit the API and namespace-path updates**
+- [x] **Step 5: Commit the API and namespace-path updates**
 
 ```bash
 git add src/repetition/hunter/core.clj src/repetition/hunter.clj test/repetition/hunter/core_test.clj
@@ -411,7 +436,7 @@ git commit -m "feat: enforce cljc platform contract across APIs"
 - Test: `test/repetition/hunter/source_test.clj`
 - Test: `test/repetition/hunter/core_test.clj`
 
-- [ ] **Step 1: Update the README examples and behavior notes for `.cljc`**
+- [x] **Step 1: Update the README examples and behavior notes for `.cljc`**
 
 ```markdown
 ### File-based analysis (new)
@@ -433,7 +458,7 @@ The project now parses source files through [edamame](https://github.com/borkdud
 For `.cljc`, you must pass `:platform :clj` or `:platform :cljs`.
 ```
 
-- [ ] **Step 2: Run the full relevant test suite**
+- [x] **Step 2: Run the full relevant test suite**
 
 Run:
 ```bash
@@ -445,7 +470,7 @@ Expected:
 - no `.cljc` entry point succeeds without explicit `:platform`
 - `.cljc` parsing differs correctly between `:clj` and `:cljs`
 
-- [ ] **Step 3: Optionally run the Lein test command if the project still supports it in CI/user workflows**
+- [x] **Step 3: Optionally run the Lein test command if the project still supports it in CI/user workflows**
 
 Run:
 ```bash
@@ -456,14 +481,14 @@ Expected:
 - PASS if Lein remains configured for the current environment
 - if Lein is not available, note that the Clojure CLI suite above is the verified path
 
-- [ ] **Step 4: Commit docs and any final test adjustments**
+- [x] **Step 4: Commit docs and any final test adjustments**
 
 ```bash
 git add README.md test/repetition/hunter/parse_test.clj test/repetition/hunter/source_test.clj test/repetition/hunter/core_test.clj
 git commit -m "docs: describe cljc platform-target analysis"
 ```
 
-- [ ] **Step 5: Final verification snapshot before completion**
+- [x] **Step 5: Final verification snapshot before completion**
 
 Run:
 ```bash
