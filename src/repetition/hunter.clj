@@ -29,3 +29,34 @@
       (catch Exception e
         (println "Hunt failed")
         (println (.getMessage e))))))
+
+
+(defn hunt-path
+  "Given a file path, prints the repetitions found. Supports .clj, .cljs,
+  and .cljc files. Accepts the same sort and filter options as hunt.
+
+  (hunt-path \"src/my_app/core.cljs\")
+
+  (hunt-path \"src/my_app/core.clj\"
+             :sort :repetition :filter {:min-complexity 5 :remove-flat true})"
+  [path & {:keys [sort filter]
+           :or {sort :complexity}}]
+  (try
+    (rep/print-results (rep/results-from-paths [path] {:sort sort :filter filter}))
+    (catch Exception e
+      (println "Hunt failed")
+      (println (.getMessage e)))))
+
+
+(defn hunt-paths
+  "Given a seq of file paths, prints the repetitions found. Supports .clj,
+  .cljs, and .cljc files. Accepts the same sort and filter options as hunt.
+
+  (hunt-paths [\"src/my_app/core.clj\" \"src/my_app/ui.cljs\"])"
+  [paths & {:keys [sort filter]
+            :or {sort :complexity}}]
+  (try
+    (rep/print-results (rep/results-from-paths paths {:sort sort :filter filter}))
+    (catch Exception e
+      (println "Hunt failed")
+      (println (.getMessage e)))))

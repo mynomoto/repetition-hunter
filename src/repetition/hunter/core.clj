@@ -92,7 +92,21 @@
     'do 'quote 'var 'def 'defn 'defn- 'defmacro
     'when 'when-not 'when-let 'if-let 'if-not
     'some-> 'some->> 'cond 'cond-> 'cond->> 'as->
-    'for 'doseq '-> '->> 'require 'import 'use 'in-ns})
+    'for 'doseq '-> '->> 'require 'import 'use 'in-ns
+    'first 'second 'rest 'next 'nth 'get 'assoc 'dissoc 'conj 'disj
+    'concat 'map 'filter 'reduce 'remove 'count 'seq 'cons 'list 'vector
+    'set 'hash-map 'hash-set 'str 'int 'long 'double 'float 'boolean
+    'nil? 'true? 'false? 'number? 'string? 'symbol? 'keyword? 'fn?
+    'map? 'vec? 'set? 'coll? 'seq? 'list? 'vector? 'integer?
+    'print 'println 'prn 'pr 'printf 'format 'subs 'split-at 'split-with
+    'apply 'partial 'comp 'juxt 'identity 'constantly 'complement
+    'not= 'not 'and 'or 'inc 'dec 'max 'min 'abs 'zero? 'pos? 'neg?
+    'even? 'odd? 'compare 'sort 'sort-by 'reverse 'distinct 'group-by
+    'partition 'partition-all 'partition-by 'take 'take-while 'drop
+    'drop-while 'interleave 'interpose 'flatten 'tree-seq 'into
+    'not-empty 'empty 'range 'repeat 'iterate 'cycle
+    'read-string 'slurp 'spit 'line-seq 'file-seq 'resultset-seq
+    're-find 're-matches 're-seq 're-pattern 're-groups})
 
 (def exclusion-words
   #{"if" "catch" "try" "throw" "finally" "do" "quote" "var" "recur"})
@@ -134,9 +148,8 @@
                       (= \. (first sym-str))
                       (= \. (last sym-str))))))
         (into []))
-      ;; Static path: use known-vars and local bindings
+      ;; Static path: use known-vars
       (let [{:keys [known-vars]} context
-            locals (local-binding-symbols f)
             protected (into special-symbols known-vars)]
         (->> syms
           (remove (fn [sym]
@@ -144,7 +157,6 @@
                       (or
                         (locals-qualified-symbol? sym)
                         (protected sym)
-                        (locals sym)
                         (and (some #(= \. %) sym-str)
                           (not-any? #(= \/ %) sym-str))
                         (= \. (first sym-str))
@@ -289,10 +301,15 @@
 
 (defn results
   "Given a seq of namespaces and a map of options returns a seq of
-   repetitions in the corresponding file with options."
+   repetitions in the corresponding file with options.
+   Uses namespace-resolve for symbol detection."
   [nss {:keys [sort] :as options}]
-  (let [paths (mapv ns->readable nss)]
-    (results-from-paths paths options)))
+  (let [files (for [n nss
+                    :let [f (ns->readable n)]]
+                (find-all-generic (read-all f) n n))]
+    (->> (create-repetition-map (first files) (rest files))
+      (filter-results (:filter options))
+      (sort-results sort))))
 
 
 (defn print-results
