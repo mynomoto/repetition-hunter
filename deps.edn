@@ -1,4 +1,5 @@
-{:deps {org.clojure/clojure {:mvn/version "1.10.3"}}
+{:deps {org.clojure/clojure {:mvn/version "1.10.3"}
+        borkdude/edamame {:mvn/version "1.4.27"}}
  :paths ["src"]
  :aliases {:dev {:extra-paths ["test"]}
            :dev-easy {:extra-deps {cider/cider-nrepl {:mvn/version "0.27.2"}
